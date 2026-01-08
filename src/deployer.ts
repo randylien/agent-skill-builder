@@ -4,9 +4,9 @@
  */
 
 import { join } from "https://deno.land/std@0.224.0/path/mod.ts";
-import type { DeployOptions, DeployResult, DeployTarget } from "./types.ts";
+import type { BatchDeployResult, DeployOptions, DeployResult, DeployTarget } from "./types.ts";
 import { TARGET_PATHS } from "./types.ts";
-import { copyDir, ensureDir, exists, expandHome, readTextFile } from "./utils.ts";
+import { copyDir, discoverSkills, ensureDir, exists, expandHome, readTextFile } from "./utils.ts";
 import { parseSkillFile } from "./validator.ts";
 import { convertToCursorRules } from "./converter.ts";
 
@@ -184,4 +184,52 @@ export async function removeSkill(
   } catch (error) {
     return { success: false, error: error.message };
   }
+}
+
+/**
+ * Batch deploy all skills from a parent directory
+ * Discovers all skill directories and deploys each one
+ */
+export async function batchDeploySkills(
+  parentDir: string,
+  options: DeployOptions,
+): Promise<BatchDeployResult[]> {
+  const results: BatchDeployResult[] = [];
+
+  // Discover all skills in the parent directory
+  const skillDirs = await discoverSkills(parentDir);
+
+  if (skillDirs.length === 0) {
+    throw new Error(`No skills found in ${parentDir}`);
+  }
+
+  for (const skillDir of skillDirs) {
+    const skillPath = join(skillDir, "SKILL.md");
+
+    try {
+      // Parse skill to get the name
+      const skill = await parseSkillFile(skillPath);
+      const skillName = skill.metadata.name;
+
+      // Deploy the skill
+      const deployResults = await deploySkill(skillDir, options);
+
+      results.push({
+        skillName,
+        skillDir,
+        results: deployResults,
+      });
+    } catch (error) {
+      // Handle validation/parse errors
+      const dirName = skillDir.split("/").pop() || skillDir;
+      results.push({
+        skillName: dirName,
+        skillDir,
+        results: [],
+        validationError: error.message,
+      });
+    }
+  }
+
+  return results;
 }

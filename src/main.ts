@@ -9,8 +9,8 @@ import { basename } from "https://deno.land/std@0.224.0/path/mod.ts";
 import type { DeployOptions, DeployTarget } from "./types.ts";
 import { TARGET_PATHS } from "./types.ts";
 import { validateSkillDir } from "./validator.ts";
-import { deploySkill, removeSkill } from "./deployer.ts";
-import { expandHome, formatErrors, listSkills } from "./utils.ts";
+import { batchDeploySkills, deploySkill, removeSkill } from "./deployer.ts";
+import { discoverSkills, expandHome, formatErrors, listSkills } from "./utils.ts";
 
 const VERSION = "0.1.0";
 
@@ -23,14 +23,21 @@ USAGE:
   skill-builder <command> [options]
 
 COMMANDS:
-  deploy <dir>     Deploy skill to target platforms
-  validate <dir>   Validate SKILL.md format
-  list             List deployed skills
-  remove <name>    Remove deployed skill
-  help             Show this help message
-  version          Show version
+  deploy <dir>       Deploy skill to target platforms
+  batch-deploy <dir> Deploy all skills in a directory
+  validate <dir>     Validate SKILL.md format
+  list               List deployed skills
+  remove <name>      Remove deployed skill
+  help               Show this help message
+  version            Show version
 
 DEPLOY OPTIONS:
+  --target <t>     Target platform: claude, codex, cursor
+  --all            Deploy to all platforms
+  --force          Overwrite existing skills
+  --dry-run        Simulate deployment without writing files
+
+BATCH-DEPLOY OPTIONS:
   --target <t>     Target platform: claude, codex, cursor
   --all            Deploy to all platforms
   --force          Overwrite existing skills
@@ -55,6 +62,12 @@ EXAMPLES:
 
   # Deploy with overwrite
   skill-builder deploy ./my-skill --target codex --force
+
+  # Batch deploy all skills in a directory
+  skill-builder batch-deploy ./skills --target claude
+
+  # Batch deploy all skills to all platforms
+  skill-builder batch-deploy ./skills --all --force
 
   # List all deployed skills
   skill-builder list --all
@@ -200,6 +213,105 @@ async function commandRemove(name: string, args: ReturnType<typeof parse>) {
   }
 }
 
+async function commandBatchDeploy(dir: string, args: ReturnType<typeof parse>) {
+  // Parse targets
+  const targets: DeployTarget[] = [];
+
+  if (args.all) {
+    targets.push("claude", "codex", "cursor");
+  } else if (args.target) {
+    const target = args.target as string;
+    if (!["claude", "codex", "cursor"].includes(target)) {
+      console.error(`Error: Invalid target "${target}". Must be: claude, codex, or cursor`);
+      Deno.exit(1);
+    }
+    targets.push(target as DeployTarget);
+  } else {
+    console.error("Error: Must specify --target or --all");
+    printHelp();
+    Deno.exit(1);
+  }
+
+  // Discover skills
+  console.log(`Discovering skills in: ${dir}\n`);
+
+  let skillDirs: string[];
+  try {
+    skillDirs = await discoverSkills(dir);
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    Deno.exit(1);
+  }
+
+  if (skillDirs.length === 0) {
+    console.error(`No skills found in ${dir}`);
+    Deno.exit(1);
+  }
+
+  console.log(`Found ${skillDirs.length} skill(s):\n`);
+  for (const skillDir of skillDirs) {
+    const skillName = skillDir.split("/").pop() || skillDir;
+    console.log(`  - ${skillName}`);
+  }
+  console.log();
+
+  // Deploy options
+  const options: DeployOptions = {
+    targets,
+    force: !!args.force,
+    dryRun: !!args["dry-run"],
+  };
+
+  if (options.dryRun) {
+    console.log("(Dry run mode - no files will be written)\n");
+  }
+
+  // Batch deploy
+  console.log(`Deploying to: ${targets.join(", ")}\n`);
+  console.log("─".repeat(50));
+
+  const batchResults = await batchDeploySkills(dir, options);
+
+  // Print results
+  let hasErrors = false;
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const batchResult of batchResults) {
+    console.log(`\n[${batchResult.skillName}]`);
+
+    if (batchResult.validationError) {
+      console.error(`  ✗ Validation error: ${batchResult.validationError}`);
+      hasErrors = true;
+      failCount++;
+      continue;
+    }
+
+    let skillHasError = false;
+    for (const result of batchResult.results) {
+      if (result.success) {
+        console.log(`  ✓ ${result.target}: ${result.path}`);
+      } else {
+        console.error(`  ✗ ${result.target}: ${result.error}`);
+        skillHasError = true;
+      }
+    }
+
+    if (skillHasError) {
+      hasErrors = true;
+      failCount++;
+    } else {
+      successCount++;
+    }
+  }
+
+  // Summary
+  console.log("\n" + "─".repeat(50));
+  console.log(`\nSummary: ${successCount} succeeded, ${failCount} failed`);
+
+  Deno.exit(hasErrors ? 1 : 0);
+}
+
 // Main
 async function main() {
   const args = parse(Deno.args, {
@@ -245,6 +357,17 @@ async function main() {
         Deno.exit(1);
       }
       await commandDeploy(dir, args);
+      break;
+    }
+
+    case "batch-deploy": {
+      const dir = args._[1] as string;
+      if (!dir) {
+        console.error("Error: Directory path required");
+        printHelp();
+        Deno.exit(1);
+      }
+      await commandBatchDeploy(dir, args);
       break;
     }
 
