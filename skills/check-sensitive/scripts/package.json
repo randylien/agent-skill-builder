@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "name": "check-sensitive-scripts",
+  "version": "1.0.0",
+  "description": "Scripts for checking sensitive information in git commits"
+}
