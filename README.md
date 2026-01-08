@@ -19,7 +19,7 @@ Deploy AI Agent Skills to **Claude Code**, **OpenAI Codex**, and **Cursor** with
 
 ```bash
 # Download the latest release (coming soon)
-curl -fsSL https://github.com/your-username/agent-skill-builder/releases/latest/download/skill-builder -o skill-builder
+curl -fsSL https://github.com/randylien/agent-skill-builder/releases/latest/download/skill-builder -o skill-builder
 chmod +x skill-builder
 mv skill-builder /usr/local/bin/
 ```
@@ -30,7 +30,7 @@ mv skill-builder /usr/local/bin/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/agent-skill-builder.git
+git clone https://github.com/randylien/agent-skill-builder.git
 cd agent-skill-builder
 
 # Build the executable
@@ -393,8 +393,8 @@ MIT License - see [LICENSE](LICENSE) for details
 
 ## Support
 
-- **Issues:** [GitHub Issues](https://github.com/your-username/agent-skill-builder/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/your-username/agent-skill-builder/discussions)
+- **Issues:** [GitHub Issues](https://github.com/randylien/agent-skill-builder/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/randylien/agent-skill-builder/discussions)
 
 ---
 
