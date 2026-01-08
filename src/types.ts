@@ -41,6 +41,13 @@ export interface DeployResult {
   error?: string;
 }
 
+export interface BatchDeployResult {
+  skillName: string;
+  skillDir: string;
+  results: DeployResult[];
+  validationError?: string;
+}
+
 export const TARGET_PATHS = {
   claude: {
     user: "~/.claude/skills",

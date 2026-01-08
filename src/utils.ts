@@ -162,3 +162,28 @@ export async function listSkills(targetDir: string): Promise<string[]> {
 export function formatErrors(errors: Array<{ field: string; message: string }>): string {
   return errors.map((e) => `  - ${e.field}: ${e.message}`).join("\n");
 }
+
+/**
+ * Discover all skill directories in a given parent directory
+ * Returns array of skill directory paths that contain SKILL.md
+ */
+export async function discoverSkills(parentDir: string): Promise<string[]> {
+  const resolvedPath = resolve(parentDir);
+
+  if (!(await exists(resolvedPath))) {
+    throw new Error(`Directory not found: ${parentDir}`);
+  }
+
+  const skills: string[] = [];
+  for await (const entry of Deno.readDir(resolvedPath)) {
+    if (entry.isDirectory) {
+      const skillDir = join(resolvedPath, entry.name);
+      const skillFile = await findSkillFile(skillDir);
+      if (skillFile) {
+        skills.push(skillDir);
+      }
+    }
+  }
+
+  return skills.sort();
+}

@@ -95,6 +95,12 @@ skill-builder deploy ./my-skill --target cursor
 
 # Deploy to all platforms at once
 skill-builder deploy ./my-skill --all
+
+# Batch deploy all skills in a directory
+skill-builder batch-deploy ./skills --target claude
+
+# Batch deploy to all platforms with force overwrite
+skill-builder batch-deploy ./skills --all --force
 ```
 
 ## Usage
@@ -144,6 +150,62 @@ skill-builder deploy ./my-skill --all --force
 - **Claude Code:** `~/.claude/skills/skill-name/`
 - **OpenAI Codex:** `~/.codex/skills/skill-name/`
 - **Cursor:** `./.cursorrules` (project-level only)
+
+#### `batch-deploy <dir>`
+
+Deploy all skills in a directory at once.
+
+```bash
+# Deploy all skills to Claude Code
+skill-builder batch-deploy ./skills --target claude
+
+# Deploy all skills to all platforms
+skill-builder batch-deploy ./skills --all
+
+# Dry run (preview without writing)
+skill-builder batch-deploy ./skills --all --dry-run
+
+# Force overwrite existing skills
+skill-builder batch-deploy ./skills --all --force
+```
+
+**Options:**
+- `--target <t>` - Target platform: `claude`, `codex`, or `cursor`
+- `--all` - Deploy to all platforms
+- `--force` - Overwrite existing skills
+- `--dry-run` - Simulate deployment without writing files
+
+**Example Output:**
+```
+Discovering skills in: ./skills
+
+Found 4 skill(s):
+
+  - check-sensitive
+  - humanize-text
+  - manage-jira-confluence
+  - skill-reviewer
+
+Deploying to: claude
+
+──────────────────────────────────────────────────
+
+[check-sensitive]
+  ✓ claude: /home/user/.claude/skills/check-sensitive
+
+[humanize-text]
+  ✓ claude: /home/user/.claude/skills/humanize-text
+
+[manage-jira-confluence]
+  ✓ claude: /home/user/.claude/skills/manage-jira-confluence
+
+[skill-reviewer]
+  ✓ claude: /home/user/.claude/skills/skill-reviewer
+
+──────────────────────────────────────────────────
+
+Summary: 4 succeeded, 0 failed
+```
 
 #### `list`
 
