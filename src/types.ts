@@ -22,6 +22,7 @@ export interface DeployOptions {
   targets: DeployTarget[];
   force?: boolean; // Overwrite existing skills
   dryRun?: boolean; // Simulate deployment without writing files
+  projectPath?: string; // Custom project path for project-level deployment
 }
 
 export interface ValidationError {

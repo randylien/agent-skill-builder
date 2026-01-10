@@ -32,16 +32,18 @@ COMMANDS:
   version            Show version
 
 DEPLOY OPTIONS:
-  --target <t>     Target platform: claude, codex, cursor
-  --all            Deploy to all platforms
-  --force          Overwrite existing skills
-  --dry-run        Simulate deployment without writing files
+  --target <t>       Target platform: claude, codex, cursor
+  --all              Deploy to all platforms
+  --force            Overwrite existing skills
+  --dry-run          Simulate deployment without writing files
+  --project-path <p> Deploy to specified project folder (e.g., /path/to/project)
 
 BATCH-DEPLOY OPTIONS:
-  --target <t>     Target platform: claude, codex, cursor
-  --all            Deploy to all platforms
-  --force          Overwrite existing skills
-  --dry-run        Simulate deployment without writing files
+  --target <t>       Target platform: claude, codex, cursor
+  --all              Deploy to all platforms
+  --force            Overwrite existing skills
+  --dry-run          Simulate deployment without writing files
+  --project-path <p> Deploy to specified project folder (e.g., /path/to/project)
 
 LIST OPTIONS:
   --target <t>     List skills from specific target
@@ -68,6 +70,12 @@ EXAMPLES:
 
   # Batch deploy all skills to all platforms
   skill-builder batch-deploy ./skills --all --force
+
+  # Deploy to a specific project folder
+  skill-builder deploy ./my-skill --target claude --project-path /path/to/my-project
+
+  # Batch deploy to a specific project folder
+  skill-builder batch-deploy ./skills --all --project-path ~/workspace/my-app
 
   # List all deployed skills
   skill-builder list --all
@@ -128,6 +136,7 @@ async function commandDeploy(dir: string, args: ReturnType<typeof parse>) {
     targets,
     force: !!args.force,
     dryRun: !!args["dry-run"],
+    projectPath: args["project-path"] as string | undefined,
   };
 
   if (options.dryRun) {
@@ -260,6 +269,7 @@ async function commandBatchDeploy(dir: string, args: ReturnType<typeof parse>) {
     targets,
     force: !!args.force,
     dryRun: !!args["dry-run"],
+    projectPath: args["project-path"] as string | undefined,
   };
 
   if (options.dryRun) {
@@ -316,7 +326,7 @@ async function commandBatchDeploy(dir: string, args: ReturnType<typeof parse>) {
 async function main() {
   const args = parse(Deno.args, {
     boolean: ["help", "version", "all", "force", "dry-run"],
-    string: ["target"],
+    string: ["target", "project-path"],
     alias: {
       h: "help",
       v: "version",
