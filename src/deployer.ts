@@ -13,7 +13,26 @@ import { convertToCursorRules } from "./converter.ts";
 /**
  * Get target directory path for deployment
  */
-function getTargetPath(target: DeployTarget, isUserLevel: boolean): string {
+function getTargetPath(
+  target: DeployTarget,
+  isUserLevel: boolean,
+  customProjectPath?: string,
+): string {
+  // If custom project path is provided, use it for project-level deployment
+  if (!isUserLevel && customProjectPath) {
+    switch (target) {
+      case "claude":
+        return join(customProjectPath, ".claude/skills");
+      case "codex":
+        return join(customProjectPath, ".codex/skills");
+      case "cursor":
+        return join(customProjectPath, ".cursorrules");
+      default:
+        throw new Error(`Unknown target: ${target}`);
+    }
+  }
+
+  // Default behavior (user-level or current directory)
   switch (target) {
     case "claude":
       return isUserLevel ? TARGET_PATHS.claude.user : TARGET_PATHS.claude.project;
@@ -37,8 +56,10 @@ async function deployToClaudeOrCodex(
   options: DeployOptions,
 ): Promise<DeployResult> {
   try {
-    // Determine target path (default to user-level)
-    const targetBase = getTargetPath(target, true);
+    // Determine target path
+    // If projectPath is provided, deploy to project-level, otherwise user-level
+    const isUserLevel = !options.projectPath;
+    const targetBase = getTargetPath(target, isUserLevel, options.projectPath);
     const expandedBase = expandHome(targetBase);
     const targetPath = join(expandedBase, skillName);
 
@@ -94,7 +115,9 @@ async function deployToCursor(
     const cursorRules = convertToCursorRules(skill);
 
     // Cursor rules are project-level only
-    const targetPath = TARGET_PATHS.cursor.project;
+    const targetPath = options.projectPath
+      ? getTargetPath("cursor", false, options.projectPath)
+      : TARGET_PATHS.cursor.project;
 
     // Check if .cursorrules already exists
     if (await exists(targetPath)) {
