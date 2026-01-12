@@ -11,9 +11,12 @@
 - **通用格式** - 使用標準 SKILL.md 格式編寫一次技能
 - **多平台支援** - 部署到 Claude Code、OpenAI Codex 和 Cursor
 - **智慧轉換** - 自動轉換為平台專屬格式
+- **彈性部署** - 可部署到使用者層級或特定專案資料夾
+- **批次操作** - 使用單一指令一次部署多個技能
 - **輕量級** - 單一執行檔，零依賴
 - **跨平台** - 支援 macOS、Linux 和 Windows
 - **安全部署** - 部署前驗證，防止意外覆寫
+- **即用技能** - 包含常見任務的範例技能
 
 ## 安裝
 
@@ -105,6 +108,24 @@ skill-builder batch-deploy ./skills --target claude
 skill-builder batch-deploy ./skills --all --force
 ```
 
+## 內建技能
+
+此專案在 `skills/` 目錄中包含即用型技能：
+
+- **check-sensitive** - 在提交前掃描檔案中的敏感資料（API 金鑰、密碼、令牌）
+- **humanize-text** - 將 AI 生成的文字轉換為更自然、更像人類的表達方式
+- **manage-jira-confluence** - 整合 Atlassian 工具（Jira 工單和 Confluence 頁面）
+- **skill-reviewer** - 分析並改進你的自訂技能
+
+部署它們：
+```bash
+# 將所有內建技能部署到 Claude Code
+skill-builder batch-deploy ./skills --target claude
+
+# 部署特定技能
+skill-builder deploy ./skills/check-sensitive --target claude
+```
+
 ## 使用說明
 
 ### 指令
@@ -147,11 +168,16 @@ skill-builder deploy ./my-skill --all --force
 - `--all` - 部署到所有平台
 - `--force` - 覆寫現有技能
 - `--dry-run` - 模擬部署而不寫入檔案
+- `--project-path <path>` - 部署到特定專案資料夾（在該專案中建立 `.claude/skills/` 或 `.codex/skills/`）
 
 **部署路徑：**
-- **Claude Code：** `~/.claude/skills/skill-name/`
-- **OpenAI Codex：** `~/.codex/skills/skill-name/`
-- **Cursor：** `./.cursorrules`（僅專案層級）
+- **使用者層級（預設）：**
+  - Claude Code：`~/.claude/skills/skill-name/`
+  - OpenAI Codex：`~/.codex/skills/skill-name/`
+- **專案層級（使用 `--project-path`）：**
+  - Claude Code：`<專案>/.claude/skills/skill-name/`
+  - OpenAI Codex：`<專案>/.codex/skills/skill-name/`
+  - Cursor：`<專案>/.cursorrules`（始終為專案層級）
 
 #### `batch-deploy <dir>`
 

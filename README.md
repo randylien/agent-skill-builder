@@ -11,9 +11,12 @@ Deploy AI Agent Skills to **Claude Code**, **OpenAI Codex**, and **Cursor** with
 - **Universal Format** - Write skills once using standard SKILL.md format
 - **Multi-Platform** - Deploy to Claude Code, OpenAI Codex, and Cursor
 - **Smart Conversion** - Automatically converts to platform-specific formats
+- **Flexible Deployment** - Deploy to user-level or specific project folders
+- **Batch Operations** - Deploy multiple skills at once with a single command
 - **Lightweight** - Single executable with zero dependencies
 - **Cross-Platform** - Works on macOS, Linux, and Windows
 - **Safe Deployment** - Validates before deploying, prevents accidental overwrites
+- **Ready-to-Use Skills** - Includes example skills for common tasks
 
 ## Installation
 
@@ -105,6 +108,24 @@ skill-builder batch-deploy ./skills --target claude
 skill-builder batch-deploy ./skills --all --force
 ```
 
+## Included Skills
+
+This repository includes ready-to-use skills in the `skills/` directory:
+
+- **check-sensitive** - Scan files for sensitive data (API keys, passwords, tokens) before committing
+- **humanize-text** - Transform AI-generated text to sound more natural and human-like
+- **manage-jira-confluence** - Integrate with Atlassian tools (Jira tickets and Confluence pages)
+- **skill-reviewer** - Analyze and improve your custom skills
+
+Deploy them with:
+```bash
+# Deploy all included skills to Claude Code
+skill-builder batch-deploy ./skills --target claude
+
+# Deploy a specific skill
+skill-builder deploy ./skills/check-sensitive --target claude
+```
+
 ## Usage
 
 ### Commands
@@ -147,11 +168,16 @@ skill-builder deploy ./my-skill --all --force
 - `--all` - Deploy to all platforms
 - `--force` - Overwrite existing skills
 - `--dry-run` - Simulate deployment without writing files
+- `--project-path <path>` - Deploy to a specific project folder (creates `.claude/skills/` or `.codex/skills/` in that project)
 
 **Deployment Paths:**
-- **Claude Code:** `~/.claude/skills/skill-name/`
-- **OpenAI Codex:** `~/.codex/skills/skill-name/`
-- **Cursor:** `./.cursorrules` (project-level only)
+- **User-level (default):**
+  - Claude Code: `~/.claude/skills/skill-name/`
+  - OpenAI Codex: `~/.codex/skills/skill-name/`
+- **Project-level (with `--project-path`):**
+  - Claude Code: `<project>/.claude/skills/skill-name/`
+  - OpenAI Codex: `<project>/.codex/skills/skill-name/`
+  - Cursor: `<project>/.cursorrules` (always project-level)
 
 #### `batch-deploy <dir>`
 
