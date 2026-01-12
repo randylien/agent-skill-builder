@@ -195,6 +195,9 @@ skill-builder batch-deploy ./skills --all --dry-run
 
 # Force overwrite existing skills
 skill-builder batch-deploy ./skills --all --force
+
+# Deploy all skills to a specific project folder
+skill-builder batch-deploy ./skills --all --project-path ~/workspace/my-app
 ```
 
 **Options:**
@@ -202,6 +205,7 @@ skill-builder batch-deploy ./skills --all --force
 - `--all` - Deploy to all platforms
 - `--force` - Overwrite existing skills
 - `--dry-run` - Simulate deployment without writing files
+- `--project-path <path>` - Deploy to a specific project folder (creates `.claude/skills/` or `.codex/skills/` in that project)
 
 **Example Output:**
 ```

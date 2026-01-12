@@ -195,6 +195,9 @@ skill-builder batch-deploy ./skills --all --dry-run
 
 # 強制覆寫現有技能
 skill-builder batch-deploy ./skills --all --force
+
+# 將所有技能部署到特定專案資料夾
+skill-builder batch-deploy ./skills --all --project-path ~/workspace/my-app
 ```
 
 **選項：**
@@ -202,6 +205,7 @@ skill-builder batch-deploy ./skills --all --force
 - `--all` - 部署到所有平台
 - `--force` - 覆寫現有技能
 - `--dry-run` - 模擬部署而不寫入檔案
+- `--project-path <path>` - 部署到特定專案資料夾（在該專案中建立 `.claude/skills/` 或 `.codex/skills/`）
 
 **輸出範例：**
 ```
