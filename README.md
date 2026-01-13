@@ -11,6 +11,7 @@ Deploy AI Agent Skills to **Claude Code**, **OpenAI Codex**, and **Cursor** with
 - **Universal Format** - Write skills once using standard SKILL.md format
 - **Multi-Platform** - Deploy to Claude Code, OpenAI Codex, and Cursor
 - **Smart Conversion** - Automatically converts to platform-specific formats
+- **GitHub Import** - Import skills directly from GitHub repositories
 - **Flexible Deployment** - Deploy to user-level or specific project folders
 - **Batch Operations** - Deploy multiple skills at once with a single command
 - **Lightweight** - Single executable with zero dependencies
@@ -49,8 +50,10 @@ mv ./dist/skill-builder /usr/local/bin/
 ### Option 3: Run with Deno
 
 ```bash
-deno run --allow-read --allow-write --allow-env src/main.ts <command>
+deno run --allow-read --allow-write --allow-env --allow-run --allow-net src/main.ts <command>
 ```
+
+Note: `--allow-run` and `--allow-net` are required for the `import` command to clone GitHub repositories.
 
 ## Quick Start
 
@@ -86,7 +89,30 @@ Instructions for using this skill...
 skill-builder validate ./my-skill
 ```
 
-### 3. Deploy to Platforms
+### 3. Import Skills from GitHub (Optional)
+
+You can import skills from any GitHub repository:
+
+```bash
+# Import from a GitHub repository
+skill-builder import https://github.com/owner/repo
+
+# Or use shorthand format
+skill-builder import owner/repo
+
+# Import from a specific branch
+skill-builder import owner/repo --branch develop
+
+# Import to a different directory
+skill-builder import owner/repo --target-dir ./imported-skills
+
+# Preview what would be imported (dry run)
+skill-builder import owner/repo --dry-run
+```
+
+After import, you'll need to review the skills for security before deploying them.
+
+### 4. Deploy to Platforms
 
 ```bash
 # Deploy to Claude Code
@@ -178,6 +204,84 @@ skill-builder deploy ./my-skill --all --force
   - Claude Code: `<project>/.claude/skills/skill-name/`
   - OpenAI Codex: `<project>/.codex/skills/skill-name/`
   - Cursor: `<project>/.cursorrules` (always project-level)
+
+#### `import <url>`
+
+Import skills from a GitHub repository.
+
+```bash
+# Import from GitHub URL
+skill-builder import https://github.com/owner/repo
+
+# Import using shorthand
+skill-builder import owner/repo
+
+# Import from specific branch
+skill-builder import owner/repo --branch develop
+
+# Import from custom skills directory path
+skill-builder import owner/repo --skills-path my-skills
+
+# Import to custom local directory
+skill-builder import owner/repo --target-dir ./imported-skills
+
+# Dry run (preview without copying)
+skill-builder import owner/repo --dry-run
+
+# Force overwrite existing skills
+skill-builder import owner/repo --force
+```
+
+**Options:**
+- `--branch <b>` - Git branch to clone (default: `main`)
+- `--skills-path <p>` - Path within repo where skills are located (default: `skills`)
+- `--target-dir <d>` - Local directory to import skills into (default: `./skills`)
+- `--force` - Overwrite existing skills
+- `--dry-run` - Preview import without copying files
+
+**Security Note:**
+After importing skills, you should review them before deployment:
+1. Check SKILL.md for security concerns
+2. Review any scripts in the scripts/ folder
+3. Validate behavior matches expected functionality
+
+**Example Output:**
+```
+Importing skills from GitHub: owner/repo
+
+Cloning repository: https://github.com/owner/repo.git
+Branch: main
+Temporary directory: /tmp/skill-import-xyz123
+
+✓ Repository cloned successfully
+
+Discovering skills in: skills/
+
+Found 3 skill(s):
+
+  ✓ check-sensitive: Imported successfully
+  ✓ humanize-text: Imported successfully
+  ✗ bad-skill: Validation failed
+
+──────────────────────────────────────────────────
+
+Import Summary:
+  Repository: https://github.com/owner/repo.git
+  Branch: main
+  Total found: 3
+  Imported: 2
+  Failed: 1
+  Skipped: 0
+
+⚠️  IMPORTANT: Security Review Required
+   Please review the imported skills before deployment:
+   - Check SKILL.md for security concerns
+   - Review any scripts in the scripts/ folder
+   - Validate behavior matches expected functionality
+
+   After review, deploy with:
+   skill-builder batch-deploy ./skills --target <platform>
+```
 
 #### `batch-deploy <dir>`
 
@@ -387,6 +491,7 @@ agent-skill-builder/
 │   ├── types.ts          # Type definitions
 │   ├── validator.ts      # SKILL.md validation
 │   ├── deployer.ts       # Deployment logic
+│   ├── importer.ts       # GitHub import logic
 │   ├── converter.ts      # Format conversion
 │   └── utils.ts          # Utility functions
 ├── examples/
@@ -438,12 +543,12 @@ deno test --allow-read --allow-write
 - [x] Deploy to Cursor (with conversion)
 - [x] Single executable compilation
 
-### Phase 2: Enhanced Features
+### Phase 2: Enhanced Features ✅
+- [x] Remote skill installation (from GitHub)
 - [ ] Skill templates (scaffolding)
 - [ ] Interactive deployment (select targets)
 - [ ] Skill update detection
 - [ ] Conflict resolution
-- [ ] Remote skill installation (from git URLs)
 
 ### Phase 3: Extended Platform Support
 - [ ] GitHub Copilot support
