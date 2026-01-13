@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run --allow-read --allow-write --allow-env
+#!/usr/bin/env -S deno run --allow-read --allow-write --allow-env --allow-run --allow-net
 /**
  * Agent Skill Builder - CLI Entry Point
  * Cross-platform skill deployment tool for AI editors
@@ -11,6 +11,7 @@ import { TARGET_PATHS } from "./types.ts";
 import { validateSkillDir } from "./validator.ts";
 import { batchDeploySkills, deploySkill, removeSkill } from "./deployer.ts";
 import { discoverSkills, expandHome, formatErrors, listSkills } from "./utils.ts";
+import { importFromGitHub, type ImportOptions } from "./importer.ts";
 
 const VERSION = "0.1.0";
 
@@ -25,6 +26,7 @@ USAGE:
 COMMANDS:
   deploy <dir>       Deploy skill to target platforms
   batch-deploy <dir> Deploy all skills in a directory
+  import <url>       Import skills from GitHub repository
   validate <dir>     Validate SKILL.md format
   list               List deployed skills
   remove <name>      Remove deployed skill
@@ -44,6 +46,13 @@ BATCH-DEPLOY OPTIONS:
   --force            Overwrite existing skills
   --dry-run          Simulate deployment without writing files
   --project-path <p> Deploy to specified project folder (e.g., /path/to/project)
+
+IMPORT OPTIONS:
+  --branch <b>       Git branch to clone (default: main)
+  --skills-path <p>  Path within repo where skills are located (default: skills)
+  --target-dir <d>   Local directory to import skills into (default: ./skills)
+  --force            Overwrite existing skills
+  --dry-run          Preview import without copying files
 
 LIST OPTIONS:
   --target <t>     List skills from specific target
@@ -76,6 +85,17 @@ EXAMPLES:
 
   # Batch deploy to a specific project folder
   skill-builder batch-deploy ./skills --all --project-path ~/workspace/my-app
+
+  # Import skills from GitHub
+  skill-builder import https://github.com/owner/repo
+  skill-builder import owner/repo --branch develop
+  skill-builder import owner/repo --skills-path my-skills --target-dir ./imported
+
+  # Preview import without copying
+  skill-builder import owner/repo --dry-run
+
+  # Import and overwrite existing skills
+  skill-builder import owner/repo --force
 
   # List all deployed skills
   skill-builder list --all
@@ -322,11 +342,74 @@ async function commandBatchDeploy(dir: string, args: ReturnType<typeof parse>) {
   Deno.exit(hasErrors ? 1 : 0);
 }
 
+async function commandImport(url: string, args: ReturnType<typeof parse>) {
+  console.log(`Importing skills from GitHub: ${url}\n`);
+
+  // Parse import options
+  const options: ImportOptions = {
+    branch: args.branch as string | undefined,
+    skillsPath: args["skills-path"] as string | undefined,
+    targetDir: args["target-dir"] as string | undefined,
+    force: !!args.force,
+    dryRun: !!args["dry-run"],
+  };
+
+  if (options.dryRun) {
+    console.log("(Dry run mode - no files will be copied)\n");
+  }
+
+  try {
+    // Perform import
+    const summary = await importFromGitHub(url, options);
+
+    // Print summary
+    console.log("\n" + "─".repeat(50));
+    console.log(`\nImport Summary:`);
+    console.log(`  Repository: ${summary.repoUrl}`);
+    console.log(`  Branch: ${summary.branch}`);
+    console.log(`  Total found: ${summary.totalFound}`);
+    console.log(`  Imported: ${summary.imported}`);
+    console.log(`  Failed: ${summary.failed}`);
+    console.log(`  Skipped: ${summary.skipped}`);
+
+    // Show failed skills details
+    if (summary.failed > 0) {
+      console.log("\nFailed skills:");
+      for (const result of summary.results) {
+        if (!result.success && !result.alreadyExists) {
+          console.log(`  ✗ ${result.skillName}:`);
+          if (result.validationErrors) {
+            result.validationErrors.forEach((err) => console.log(`      - ${err}`));
+          } else if (result.error) {
+            console.log(`      - ${result.error}`);
+          }
+        }
+      }
+    }
+
+    // Show security review reminder
+    if (summary.imported > 0 && !options.dryRun) {
+      console.log("\n⚠️  IMPORTANT: Security Review Required");
+      console.log("   Please review the imported skills before deployment:");
+      console.log(`   - Check SKILL.md for security concerns`);
+      console.log(`   - Review any scripts in the scripts/ folder`);
+      console.log(`   - Validate behavior matches expected functionality`);
+      console.log(`\n   After review, deploy with:`);
+      console.log(`   skill-builder batch-deploy ${options.targetDir || "./skills"} --target <platform>`);
+    }
+
+    Deno.exit(summary.failed > 0 ? 1 : 0);
+  } catch (error) {
+    console.error(`\n✗ Import failed: ${error.message}`);
+    Deno.exit(1);
+  }
+}
+
 // Main
 async function main() {
   const args = parse(Deno.args, {
     boolean: ["help", "version", "all", "force", "dry-run"],
-    string: ["target", "project-path"],
+    string: ["target", "project-path", "branch", "skills-path", "target-dir"],
     alias: {
       h: "help",
       v: "version",
@@ -394,6 +477,17 @@ async function main() {
         Deno.exit(1);
       }
       await commandRemove(name, args);
+      break;
+    }
+
+    case "import": {
+      const url = args._[1] as string;
+      if (!url) {
+        console.error("Error: GitHub URL required");
+        printHelp();
+        Deno.exit(1);
+      }
+      await commandImport(url, args);
       break;
     }
 
