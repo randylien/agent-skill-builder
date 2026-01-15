@@ -12,6 +12,7 @@ Deploy AI Agent Skills to **Claude Code**, **OpenAI Codex**, and **Cursor** with
 - **Multi-Platform** - Deploy to Claude Code, OpenAI Codex, and Cursor
 - **Smart Conversion** - Automatically converts to platform-specific formats
 - **GitHub Import** - Import skills directly from GitHub repositories
+- **External Linking** - Link skills from other platforms, Git repositories, or local directories
 - **Flexible Deployment** - Deploy to user-level or specific project folders
 - **Batch Operations** - Deploy multiple skills at once with a single command
 - **Lightweight** - Single executable with zero dependencies
@@ -367,6 +368,59 @@ skill-builder remove my-skill --target claude
 
 **Options:**
 - `--target <t>` - Required. Platform to remove from: `claude`, `codex`, or `cursor`
+
+#### `link`
+
+Manage external skill links. Link skills from other platforms, Git repositories, or local directories to your Claude Code configuration.
+
+```bash
+# Add a local skill link
+skill-builder link add /path/to/skill --target claude --name my-linked-skill
+
+# Add a Git repository link
+skill-builder link add https://github.com/user/repo --target claude \
+  --name github-skill --path skills/my-skill --branch main
+
+# List all links
+skill-builder link list --target claude
+
+# Sync a specific linked skill
+skill-builder link sync my-linked-skill --target claude
+
+# Sync all enabled linked skills
+skill-builder link sync-all --target claude
+
+# Disable a link temporarily
+skill-builder link disable my-linked-skill --target claude
+
+# Remove a link
+skill-builder link remove my-linked-skill --target claude
+
+# Show detailed help
+skill-builder link help
+```
+
+**Subcommands:**
+- `add <source>` - Add a new skill link
+- `list` - List all configured links
+- `remove <name>` - Remove a link
+- `enable <name>` - Enable a disabled link
+- `disable <name>` - Disable a link without removing it
+- `sync <name>` - Sync (download/copy and deploy) a specific linked skill
+- `sync-all` - Sync all enabled linked skills
+- `help` - Show detailed link help
+
+**Common Options:**
+- `--target <t>` - Required. Target platform: `claude`, `codex`, or `cursor`
+- `--user` - Use user-level configuration (default: `~/.claude/skill-links.json`)
+- `--project` - Use project-level configuration (`.claude/skill-links.json`)
+
+**Link Types:**
+- **local** - Local filesystem path to a skill directory
+- **git** - Git repository URL (GitHub, GitLab, etc.)
+- **web** - Web URL (not yet supported for sync)
+
+**For more details**, see [External Linking Documentation](docs/EXTERNAL_LINKS.md).
 
 ## SKILL.md Format Specification
 

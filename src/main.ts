@@ -12,6 +12,14 @@ import { validateSkillDir } from "./validator.ts";
 import { batchDeploySkills, deploySkill, removeSkill } from "./deployer.ts";
 import { discoverSkills, expandHome, formatErrors, listSkills } from "./utils.ts";
 import { importFromGitHub, type ImportOptions } from "./importer.ts";
+import {
+  addLink,
+  listLinks,
+  removeLink,
+  syncAllLinks,
+  syncLink,
+  toggleLink,
+} from "./linker.ts";
 
 const VERSION = "0.1.0";
 
@@ -30,6 +38,7 @@ COMMANDS:
   validate <dir>     Validate SKILL.md format
   list               List deployed skills
   remove <name>      Remove deployed skill
+  link               Manage external skill links (see 'link help' for details)
   help               Show this help message
   version            Show version
 
@@ -60,6 +69,27 @@ LIST OPTIONS:
 
 REMOVE OPTIONS:
   --target <t>     Remove from specific target (required)
+
+LINK COMMANDS:
+  link add <source>    Add a skill link
+  link list            List all skill links
+  link remove <name>   Remove a skill link
+  link enable <name>   Enable a skill link
+  link disable <name>  Disable a skill link
+  link sync <name>     Sync a specific linked skill
+  link sync-all        Sync all enabled linked skills
+  link help            Show detailed link help
+
+LINK OPTIONS:
+  --target <t>         Target platform: claude, codex, cursor (required)
+  --user               Use user-level config (default)
+  --project            Use project-level config
+  --name <n>           Link name (for 'add', defaults to source name)
+  --type <t>           Link type: local, git, web (auto-detected if not specified)
+  --path <p>           Path within source (for git/web links)
+  --branch <b>         Git branch (for git links)
+  --description <d>    Link description
+  --force              Overwrite existing links
 
 EXAMPLES:
   # Validate a skill
@@ -102,6 +132,21 @@ EXAMPLES:
 
   # Remove a skill
   skill-builder remove my-skill --target claude
+
+  # Add a local skill link
+  skill-builder link add /path/to/skill --target claude --name my-linked-skill
+
+  # Add a git skill link
+  skill-builder link add https://github.com/user/repo --target claude --path skills/my-skill
+
+  # List all skill links
+  skill-builder link list --target claude
+
+  # Sync a linked skill
+  skill-builder link sync my-linked-skill --target claude
+
+  # Sync all enabled linked skills
+  skill-builder link sync-all --target claude --project
 `);
 }
 
@@ -405,11 +450,332 @@ async function commandImport(url: string, args: ReturnType<typeof parse>) {
   }
 }
 
+function printLinkHelp() {
+  console.log(`
+Agent Skill Builder - Link Management
+
+Link external skills from other platforms to your Claude Code configuration.
+Supports both user-level and project-level linking.
+
+USAGE:
+  skill-builder link <subcommand> [options]
+
+SUBCOMMANDS:
+  add <source>     Add a new skill link
+  list             List all skill links
+  remove <name>    Remove a skill link
+  enable <name>    Enable a disabled link
+  disable <name>   Disable a link without removing it
+  sync <name>      Sync (download/copy and deploy) a specific linked skill
+  sync-all         Sync all enabled linked skills
+  help             Show this help message
+
+COMMON OPTIONS:
+  --target <t>     Target platform: claude, codex, cursor (required)
+  --user           Use user-level configuration (default: ~/.claude/skill-links.json)
+  --project        Use project-level configuration (.claude/skill-links.json)
+
+ADD OPTIONS:
+  --name <n>       Link name (defaults to inferred from source)
+  --type <t>       Link type: local, git, web (auto-detected if not specified)
+  --path <p>       Subdirectory path within source (for git/web)
+  --branch <b>     Git branch to use (for git links, default: main)
+  --description <d> Description of the linked skill
+  --force          Overwrite existing link with same name
+
+SYNC OPTIONS:
+  --force          Force overwrite when deploying linked skills
+
+LINK TYPES:
+  local            Local filesystem path to a skill directory
+  git              Git repository URL (GitHub, GitLab, etc.)
+  web              Web URL to a skill (not yet supported for sync)
+
+EXAMPLES:
+  # Add a local skill link at user level
+  skill-builder link add /path/to/my-skill --target claude --name my-skill
+
+  # Add a git skill link from GitHub
+  skill-builder link add https://github.com/user/repo --target claude \\
+    --name github-skill --path skills/awesome-skill --branch main
+
+  # Add a link at project level
+  skill-builder link add ~/shared-skills/productivity --target claude \\
+    --name productivity --project
+
+  # List all user-level links
+  skill-builder link list --target claude --user
+
+  # List all project-level links
+  skill-builder link list --target claude --project
+
+  # Disable a link temporarily
+  skill-builder link disable my-skill --target claude
+
+  # Re-enable a link
+  skill-builder link enable my-skill --target claude
+
+  # Sync a specific linked skill
+  skill-builder link sync my-skill --target claude
+
+  # Sync all enabled links
+  skill-builder link sync-all --target claude --user
+
+  # Remove a link
+  skill-builder link remove my-skill --target claude
+
+NOTES:
+  - Links are stored in .skill-links.json files
+  - User-level: ~/.claude/skill-links.json (applies to all projects)
+  - Project-level: .claude/skill-links.json (applies to current project only)
+  - Syncing copies/clones the skill and deploys it to the target platform
+  - For git links, the repository is cloned temporarily during sync
+  - Disabled links are not synced but remain in the registry
+`);
+}
+
+async function commandLink(args: ReturnType<typeof parse>) {
+  const subcommand = args._[1] as string;
+
+  if (!subcommand || subcommand === "help") {
+    printLinkHelp();
+    Deno.exit(0);
+  }
+
+  // Validate target
+  if (!args.target) {
+    console.error("Error: --target is required for link commands");
+    console.error("Use one of: claude, codex, cursor");
+    Deno.exit(1);
+  }
+
+  const target = args.target as string;
+  if (!["claude", "codex", "cursor"].includes(target)) {
+    console.error(`Error: Invalid target "${target}". Must be: claude, codex, or cursor`);
+    Deno.exit(1);
+  }
+
+  const userLevel = !args.project; // Default to user level
+
+  switch (subcommand) {
+    case "add": {
+      const source = args._[2] as string;
+      if (!source) {
+        console.error("Error: Source path or URL required");
+        printLinkHelp();
+        Deno.exit(1);
+      }
+
+      // Infer name from source if not provided
+      const name = args.name as string ||
+        basename(source.replace(/\.git$/, "").replace(/\/$/, ""));
+
+      const result = await addLink(name, source, {
+        target: target as DeployTarget,
+        userLevel,
+        force: !!args.force,
+      }, {
+        type: args.type as "local" | "git" | "web" | undefined,
+        path: args.path as string | undefined,
+        branch: args.branch as string | undefined,
+        description: args.description as string | undefined,
+      });
+
+      if (result.success) {
+        const level = userLevel ? "user" : "project";
+        console.log(`✓ Link "${name}" added successfully (${level}-level)`);
+        console.log(`  Type: ${result.link?.type}`);
+        console.log(`  Source: ${result.link?.source}`);
+        if (result.link?.path) console.log(`  Path: ${result.link.path}`);
+        if (result.link?.branch) console.log(`  Branch: ${result.link.branch}`);
+        console.log(`\nTo sync this link, run:`);
+        console.log(`  skill-builder link sync ${name} --target ${target}${userLevel ? "" : " --project"}`);
+      } else {
+        console.error(`✗ Failed to add link: ${result.error}`);
+        Deno.exit(1);
+      }
+      break;
+    }
+
+    case "list": {
+      const level = userLevel ? "user" : "project";
+      console.log(`Skill links (${level}-level, ${target}):\n`);
+
+      const links = await listLinks({
+        target: target as DeployTarget,
+        userLevel,
+      });
+
+      if (links.length === 0) {
+        console.log("  (no links configured)");
+      } else {
+        for (const link of links) {
+          const status = link.enabled ? "✓" : "✗";
+          console.log(`  ${status} ${link.name}`);
+          console.log(`      Type: ${link.type}`);
+          console.log(`      Source: ${link.source}`);
+          if (link.path) console.log(`      Path: ${link.path}`);
+          if (link.branch) console.log(`      Branch: ${link.branch}`);
+          if (link.description) console.log(`      Description: ${link.description}`);
+          console.log();
+        }
+      }
+      break;
+    }
+
+    case "remove": {
+      const name = args._[2] as string;
+      if (!name) {
+        console.error("Error: Link name required");
+        printLinkHelp();
+        Deno.exit(1);
+      }
+
+      const result = await removeLink(name, {
+        target: target as DeployTarget,
+        userLevel,
+      });
+
+      if (result.success) {
+        console.log(`✓ Link "${name}" removed successfully`);
+      } else {
+        console.error(`✗ Failed to remove link: ${result.error}`);
+        Deno.exit(1);
+      }
+      break;
+    }
+
+    case "enable": {
+      const name = args._[2] as string;
+      if (!name) {
+        console.error("Error: Link name required");
+        printLinkHelp();
+        Deno.exit(1);
+      }
+
+      const result = await toggleLink(name, true, {
+        target: target as DeployTarget,
+        userLevel,
+      });
+
+      if (result.success) {
+        console.log(`✓ Link "${name}" enabled`);
+      } else {
+        console.error(`✗ Failed to enable link: ${result.error}`);
+        Deno.exit(1);
+      }
+      break;
+    }
+
+    case "disable": {
+      const name = args._[2] as string;
+      if (!name) {
+        console.error("Error: Link name required");
+        printLinkHelp();
+        Deno.exit(1);
+      }
+
+      const result = await toggleLink(name, false, {
+        target: target as DeployTarget,
+        userLevel,
+      });
+
+      if (result.success) {
+        console.log(`✓ Link "${name}" disabled`);
+      } else {
+        console.error(`✗ Failed to disable link: ${result.error}`);
+        Deno.exit(1);
+      }
+      break;
+    }
+
+    case "sync": {
+      const name = args._[2] as string;
+      if (!name) {
+        console.error("Error: Link name required");
+        printLinkHelp();
+        Deno.exit(1);
+      }
+
+      console.log(`Syncing link "${name}"...\n`);
+
+      const result = await syncLink(name, {
+        target: target as DeployTarget,
+        userLevel,
+        force: !!args.force,
+      });
+
+      if (result.success) {
+        console.log(`✓ Link "${name}" synced successfully`);
+        if (result.deployResults) {
+          for (const deployResult of result.deployResults) {
+            if (deployResult.success) {
+              console.log(`  ✓ ${deployResult.target}: ${deployResult.path}`);
+            } else {
+              console.log(`  ✗ ${deployResult.target}: ${deployResult.error}`);
+            }
+          }
+        }
+      } else {
+        console.error(`✗ Failed to sync link: ${result.error}`);
+        Deno.exit(1);
+      }
+      break;
+    }
+
+    case "sync-all": {
+      console.log(`Syncing all enabled links...\n`);
+
+      const results = await syncAllLinks({
+        target: target as DeployTarget,
+        userLevel,
+        force: !!args.force,
+      });
+
+      if (results.length === 0) {
+        console.log("No enabled links to sync");
+        Deno.exit(0);
+      }
+
+      let hasErrors = false;
+      for (const result of results) {
+        if (result.success) {
+          console.log(`✓ ${result.link.name}`);
+          if (result.deployResults) {
+            for (const deployResult of result.deployResults) {
+              if (deployResult.success) {
+                console.log(`    ✓ ${deployResult.target}: ${deployResult.path}`);
+              } else {
+                console.log(`    ✗ ${deployResult.target}: ${deployResult.error}`);
+                hasErrors = true;
+              }
+            }
+          }
+        } else {
+          console.error(`✗ ${result.link.name}: ${result.error}`);
+          hasErrors = true;
+        }
+        console.log();
+      }
+
+      console.log(`Synced ${results.length} link(s)`);
+      Deno.exit(hasErrors ? 1 : 0);
+      break;
+    }
+
+    default: {
+      console.error(`Error: Unknown link subcommand "${subcommand}"`);
+      printLinkHelp();
+      Deno.exit(1);
+    }
+  }
+}
+
 // Main
 async function main() {
   const args = parse(Deno.args, {
-    boolean: ["help", "version", "all", "force", "dry-run"],
-    string: ["target", "project-path", "branch", "skills-path", "target-dir"],
+    boolean: ["help", "version", "all", "force", "dry-run", "user", "project"],
+    string: ["target", "project-path", "branch", "skills-path", "target-dir", "name", "type", "path", "description"],
     alias: {
       h: "help",
       v: "version",
@@ -488,6 +854,11 @@ async function main() {
         Deno.exit(1);
       }
       await commandImport(url, args);
+      break;
+    }
+
+    case "link": {
+      await commandLink(args);
       break;
     }
 
