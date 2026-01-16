@@ -7,6 +7,19 @@ import { join, resolve } from "https://deno.land/std@0.224.0/path/mod.ts";
 import { expandGlob } from "https://deno.land/std@0.224.0/fs/mod.ts";
 
 /**
+ * Safely extract error message from unknown error type
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  return String(error);
+}
+
+/**
  * Expand tilde (~) in file paths to home directory
  */
 export function expandHome(filepath: string): string {
@@ -52,7 +65,7 @@ export function parseFrontmatter(text: string): {
   try {
     metadata = parseYaml(yamlText) as Record<string, unknown>;
   } catch (error) {
-    throw new Error(`Invalid YAML syntax: ${error.message}`);
+    throw new Error(`Invalid YAML syntax: ${getErrorMessage(error)}`);
   }
 
   return {

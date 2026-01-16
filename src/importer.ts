@@ -5,7 +5,7 @@
 
 import { join } from "https://deno.land/std@0.224.0/path/mod.ts";
 import type { ValidationResult } from "./types.ts";
-import { copyDir, discoverSkills, ensureDir, exists } from "./utils.ts";
+import { copyDir, discoverSkills, ensureDir, exists, getErrorMessage } from "./utils.ts";
 import { validateSkillDir } from "./validator.ts";
 import { parseSkillFile } from "./validator.ts";
 
@@ -103,7 +103,7 @@ async function cloneRepo(
 
     return { success: true };
   } catch (error) {
-    return { success: false, error: `Failed to clone repository: ${error.message}` };
+    return { success: false, error: `Failed to clone repository: ${getErrorMessage(error)}` };
   }
 }
 
@@ -250,10 +250,10 @@ export async function importFromGitHub(
           skillName: skillDirName,
           skillDir,
           success: false,
-          error: error.message,
+          error: getErrorMessage(error),
         });
         failed++;
-        console.log(`  ✗ ${skillDirName}: ${error.message}`);
+        console.log(`  ✗ ${skillDirName}: ${getErrorMessage(error)}`);
       }
     }
 

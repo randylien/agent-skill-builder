@@ -6,7 +6,7 @@
 import { join } from "https://deno.land/std@0.224.0/path/mod.ts";
 import type { BatchDeployResult, DeployOptions, DeployResult, DeployTarget } from "./types.ts";
 import { TARGET_PATHS } from "./types.ts";
-import { copyDir, discoverSkills, ensureDir, exists, expandHome, readTextFile } from "./utils.ts";
+import { copyDir, discoverSkills, ensureDir, exists, expandHome, getErrorMessage, readTextFile } from "./utils.ts";
 import { parseSkillFile } from "./validator.ts";
 import { convertToCursorRules } from "./converter.ts";
 
@@ -94,7 +94,7 @@ async function deployToClaudeOrCodex(
     return {
       target,
       success: false,
-      error: error.message,
+      error: getErrorMessage(error),
     };
   }
 }
@@ -144,7 +144,7 @@ async function deployToCursor(
     return {
       target: "cursor",
       success: false,
-      error: error.message,
+      error: getErrorMessage(error),
     };
   }
 }
@@ -205,7 +205,7 @@ export async function removeSkill(
 
     return { success: true };
   } catch (error) {
-    return { success: false, error: error.message };
+    return { success: false, error: getErrorMessage(error) };
   }
 }
 
@@ -249,7 +249,7 @@ export async function batchDeploySkills(
         skillName: dirName,
         skillDir,
         results: [],
-        validationError: error.message,
+        validationError: getErrorMessage(error),
       });
     }
   }

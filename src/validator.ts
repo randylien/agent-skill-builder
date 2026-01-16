@@ -5,7 +5,7 @@
 
 import type { SkillFile, SkillMetadata, ValidationError, ValidationResult } from "./types.ts";
 import { LIMITS } from "./types.ts";
-import { parseFrontmatter, readTextFile } from "./utils.ts";
+import { getErrorMessage, parseFrontmatter, readTextFile } from "./utils.ts";
 
 /**
  * Validate skill metadata against format requirements
@@ -109,7 +109,7 @@ export async function parseSkillFile(filepath: string): Promise<SkillFile> {
   const { metadata, content, raw } = parseFrontmatter(text);
 
   return {
-    metadata: metadata as SkillMetadata,
+    metadata: metadata as unknown as SkillMetadata,
     content,
     raw,
   };
@@ -121,7 +121,7 @@ export async function parseSkillFile(filepath: string): Promise<SkillFile> {
 export async function validateSkillFile(filepath: string): Promise<ValidationResult> {
   try {
     const skill = await parseSkillFile(filepath);
-    const errors = validateMetadata(skill.metadata);
+    const errors = validateMetadata(skill.metadata as unknown as Record<string, unknown>);
 
     return {
       valid: errors.length === 0,
@@ -130,7 +130,7 @@ export async function validateSkillFile(filepath: string): Promise<ValidationRes
   } catch (error) {
     return {
       valid: false,
-      errors: [{ field: "file", message: error.message }],
+      errors: [{ field: "file", message: getErrorMessage(error) }],
     };
   }
 }
@@ -166,7 +166,7 @@ export async function validateSkillDir(dirPath: string): Promise<ValidationResul
   } catch (error) {
     return {
       valid: false,
-      errors: [{ field: "directory", message: error.message }],
+      errors: [{ field: "directory", message: getErrorMessage(error) }],
     };
   }
 }

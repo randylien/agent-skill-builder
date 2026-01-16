@@ -10,7 +10,7 @@ import type { DeployOptions, DeployTarget } from "./types.ts";
 import { TARGET_PATHS } from "./types.ts";
 import { validateSkillDir } from "./validator.ts";
 import { batchDeploySkills, deploySkill, removeSkill } from "./deployer.ts";
-import { discoverSkills, expandHome, formatErrors, listSkills } from "./utils.ts";
+import { discoverSkills, expandHome, formatErrors, getErrorMessage, listSkills } from "./utils.ts";
 import { importFromGitHub, type ImportOptions } from "./importer.ts";
 
 const VERSION = "0.1.0";
@@ -268,7 +268,7 @@ async function commandBatchDeploy(dir: string, args: ReturnType<typeof parse>) {
   try {
     skillDirs = await discoverSkills(dir);
   } catch (error) {
-    console.error(`Error: ${error.message}`);
+    console.error(`Error: ${getErrorMessage(error)}`);
     Deno.exit(1);
   }
 
@@ -400,7 +400,7 @@ async function commandImport(url: string, args: ReturnType<typeof parse>) {
 
     Deno.exit(summary.failed > 0 ? 1 : 0);
   } catch (error) {
-    console.error(`\n✗ Import failed: ${error.message}`);
+    console.error(`\n✗ Import failed: ${getErrorMessage(error)}`);
     Deno.exit(1);
   }
 }
